@@ -2,12 +2,12 @@
 
 Eight ways to find the sentence that answers a question, compared on the same small test set.
 
-hit_at_3.png
+![hit@3 for each retriever](hit_at_3.png)
 
 ## The test
 
-- **Corpus:** [`royal-family.txt`](../royal-family.txt), split into **112 sentences**. Each sentence is one passage, and citation markers like `[13]` are removed first.
-- **Questions:** [`retriever-question.txt`](../retriever-question.txt) holds **35 questions**, one per line, in the form `question | quote`. The correct answer is the one sentence that contains the quote. Labelling by quote rather than sentence number means editing the text doesn't break the labels. If a quote matches no sentence or more than one, the script stops with an error.
+- **Corpus:** [`royal-family.txt`](royal-family.txt), split into **112 sentences**. Each sentence is one passage, and citation markers like `[13]` are removed first.
+- **Questions:** [`retriever-question.txt`](retriever-question.txt) holds **35 questions**, one per line, in the form `question | quote`. The correct answer is the one sentence that contains the quote. Labelling by quote rather than sentence number means editing the text doesn't break the labels. If a quote matches no sentence or more than one, the script stops with an error.
 - **Question mix:** about half reuse the source's words ("What is the Court Circular?"). The rest are reworded on purpose ("Who steps in if the king is too ill to do his job?" for *counsellors of state*), which tests matching on meaning rather than shared words.
 - **Metric:** **hit@3**, the share of questions where the correct sentence is in the top 3 results. A retriever picking at random would score about 3%.
 
@@ -37,18 +37,18 @@ hit_at_3.png
 
 ## The retrievers
 
-Every retriever subclasses [`Retriever`](base.py). It implements `scores(query)`, which returns one score per passage, and inherits `retrieve(query, k)`, which returns the indices of the top `k` passages.
+Every retriever subclasses [`Retriever`](retrievers/base.py). It implements `scores(query)`, which returns one score per passage, and inherits `retrieve(query, k)`, which returns the indices of the top `k` passages.
 
 | File | Class | How it works |
 |---|---|---|
-| [`tfidf_retriever.py`](tfidf_retriever.py) | `TfidfRetriever` | TF-IDF word vectors (scikit-learn, English common words removed) compared by cosine similarity. |
-| [`bm25_retriever.py`](bm25_retriever.py) | `BM25Retriever` | BM25Okapi from `rank_bm25`, on lowercased word tokens. `drop_stopwords=True` removes common words first. |
-| [`embedding_retriever.py`](embedding_retriever.py) | `EmbeddingRetriever` | sentence-transformers embeddings compared by cosine similarity. Defaults to `all-MiniLM-L6-v2`. `query_prefix` adds an instruction to the query only, which BGE models expect. |
-| [`hybrid_retriever.py`](hybrid_retriever.py) | `HybridRetriever` | Scales each retriever's scores to 0–1 and averages them. |
-| [`rrf_retriever.py`](rrf_retriever.py) | `RRFRetriever` | Reciprocal rank fusion: each passage scores `Σ 1 / (60 + rank)` across retrievers. Uses rank order only, never the raw scores. |
-| [`rerank_retriever.py`](rerank_retriever.py) | `RerankRetriever` | Two stages: takes the first stage's top 20, then re-scores each (question, sentence) pair with the cross-encoder `ms-marco-MiniLM-L-6-v2`. Everything outside the top 20 ranks last. |
+| [`tfidf_retriever.py`](retrievers/tfidf_retriever.py) | `TfidfRetriever` | TF-IDF word vectors (scikit-learn, English common words removed) compared by cosine similarity. |
+| [`bm25_retriever.py`](retrievers/bm25_retriever.py) | `BM25Retriever` | BM25Okapi from `rank_bm25`, on lowercased word tokens. `drop_stopwords=True` removes common words first. |
+| [`embedding_retriever.py`](retrievers/embedding_retriever.py) | `EmbeddingRetriever` | sentence-transformers embeddings compared by cosine similarity. Defaults to `all-MiniLM-L6-v2`. `query_prefix` adds an instruction to the query only, which BGE models expect. |
+| [`hybrid_retriever.py`](retrievers/hybrid_retriever.py) | `HybridRetriever` | Scales each retriever's scores to 0–1 and averages them. |
+| [`rrf_retriever.py`](retrievers/rrf_retriever.py) | `RRFRetriever` | Reciprocal rank fusion: each passage scores `Σ 1 / (60 + rank)` across retrievers. Uses rank order only, never the raw scores. |
+| [`rerank_retriever.py`](retrievers/rerank_retriever.py) | `RerankRetriever` | Two stages: takes the first stage's top 20, then re-scores each (question, sentence) pair with the cross-encoder `ms-marco-MiniLM-L-6-v2`. Everything outside the top 20 ranks last. |
 
-To add a retriever, subclass `Retriever`, implement `scores`, and add it to the `retrievers` dict in [`main.py`](../main.py).
+To add a retriever, subclass `Retriever`, implement `scores`, and add it to the `retrievers` dict in [`main.py`](main.py).
 
 ## Running it
 

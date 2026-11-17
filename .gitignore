@@ -10,9 +10,6 @@ __pycache__/
 venv/
 env/
 
-# Generated output (recreated by running main.py)
-hit_at_3.png
-
 # Editor / OS clutter
 .vscode/
 .idea/
