@@ -2,7 +2,7 @@
 
 Eight ways to find the sentence that answers a question, compared on the same small test set.
 
-![hit@3 for each retriever](image.png)
+hit_at_3.png
 
 ## The test
 
