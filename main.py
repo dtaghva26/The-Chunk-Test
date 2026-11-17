@@ -3,6 +3,7 @@ import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from retrievers.bm25_retriever import BM25Retriever
 from retrievers.embedding_retriever import EmbeddingRetriever
@@ -13,6 +14,9 @@ from retrievers.tfidf_retriever import TfidfRetriever
 
 HERE = Path(__file__).parent
 K = 3
+# Indices in the retrievers dict where a new family starts (keyword | dense | combined),
+# used to draw separators on the chart. Update if you reorder or add retrievers.
+GROUP_BREAKS = (3, 5)
 
 
 def load_passages() -> list[str]:
@@ -62,29 +66,46 @@ def main():
     }
 
     print(f"{len(passages)} passages, {len(questions)} questions\n")
-    hit_rates = {}
+    results = {}
     for name, retriever in retrievers.items():
-        hits = 0
         print(f"== {name.replace(chr(10), ' ')}")
+        ranks = []
         for question, gold in zip(questions, GOLD):
-            top = retriever.retrieve(question, k=K)
-            hit = gold in top
-            hits += hit
-            print(f"  [{'HIT ' if hit else 'MISS'}] top{K}={top} gold={gold}  {question}")
-        hit_rates[name] = hits / len(questions)
-        print(f"  hit@{K} = {hit_rates[name]:.0%}\n")
+            # Full ranking, so we know where the gold passage landed even outside the top K.
+            # (RerankRetriever ties everything outside its shortlist at -inf; such ranks are
+            # > 20 either way, so they barely move MRR.)
+            ranking = retriever.retrieve(question, k=len(passages))
+            rank = ranking.index(gold) + 1
+            ranks.append(rank)
+            print(f"  [{'HIT ' if rank <= K else 'MISS'}] rank={rank:<3} top{K}={ranking[:K]} gold={gold}  {question}")
+        ranks = np.array(ranks)
+        results[name] = {
+            "hit@1": np.mean(ranks == 1),
+            f"hit@{K}": np.mean(ranks <= K),
+            "MRR": np.mean(1 / ranks),
+        }
+        r = results[name]
+        print(f"  hit@1 = {r['hit@1']:.0%}  hit@{K} = {r[f'hit@{K}']:.0%}  MRR = {r['MRR']:.2f}\n")
 
-    # Bar chart of hit@3 per method
-    # Colour by family: keyword = blue, dense = green, combined = red.
-    colors = ["#4C72B0"] * 3 + ["#55A868"] * 2 + ["#C44E52"] * 3
-    fig, ax = plt.subplots(figsize=(9, 4))
-    bars = ax.bar(hit_rates.keys(), hit_rates.values(), color=colors[:len(hit_rates)])
-    ax.bar_label(bars, labels=[f"{v:.0%}" for v in hit_rates.values()])
-    ax.set_ylim(0, 1.1)
-    ax.set_ylabel(f"hit@{K}")
-    ax.set_title(f"Retriever comparison (hit@{K})")
+    # Grouped bar chart: one group per retriever, one bar per metric.
+    metrics = list(next(iter(results.values())))
+    x = np.arange(len(results))
+    width = 0.27
+    fig, ax = plt.subplots(figsize=(11, 4.5))
+    for i, (metric, color) in enumerate(zip(metrics, ["#8DA0CB", "#4C72B0", "#E5862D"])):
+        values = [r[metric] for r in results.values()]
+        bars = ax.bar(x + (i - 1) * width, values, width, label=metric, color=color)
+        labels = [f"{v:.2f}" if metric == "MRR" else f"{v:.0%}" for v in values]
+        ax.bar_label(bars, labels=labels, fontsize=7, padding=1)
+    for b in GROUP_BREAKS:  # separate keyword | dense | combined
+        ax.axvline(b - 0.5, color="#BBBBBB", linewidth=0.8, linestyle="--")
+    ax.set_xticks(x, results.keys())
+    ax.set_ylim(0, 1.12)
+    ax.set_ylabel("score")
+    ax.set_title("Retriever comparison")
+    ax.legend(loc="upper left", ncols=3, fontsize=8, frameon=False)
     fig.tight_layout()
-    fig.savefig(HERE / "hit_at_3.png", dpi=150)
+    fig.savefig(HERE / "retriever_scores.png", dpi=150)
     plt.show()
 
 
