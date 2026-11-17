@@ -1,0 +1,7 @@
+# Minimum versions only, no upper pins: pip picks the newest release
+# that supports whichever Python is running. Needs Python 3.9+.
+rank_bm25>=0.2.2
+sentence-transformers>=2.2.0   # pulls in torch and transformers
+scikit-learn>=1.0             # TF-IDF + stopword list (also a sentence-transformers dep)
+numpy>=1.21
+matplotlib>=3.4                # Axes.bar_label was added in 3.4
